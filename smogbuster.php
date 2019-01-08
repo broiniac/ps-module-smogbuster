@@ -61,8 +61,27 @@ class SmogBuster extends Module
     private function installSQL()
     {
         $sql = '
-            ALTER TABLE '._DB_PREFIX_.'product_lang
-            ADD COLUMN IF NOT EXISTS extra_product_info VARCHAR(255) NULL
+            CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'smogbuster`
+            (
+                `id`         INT NOT NULL auto_increment,
+                `station_id` INT NULL DEFAULT NULL,
+                `name`       VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
+                `latitude`   DECIMAL(11, 7) NULL DEFAULT NULL,
+                `longitude`  DECIMAL(11, 7) NULL DEFAULT NULL,
+                `city`       VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
+                `address`    VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
+                `st`         INT NULL DEFAULT NULL,
+                `so2`        INT NULL DEFAULT NULL,
+                `no2`        INT NULL DEFAULT NULL,
+                `co`         INT NULL DEFAULT NULL,
+                `pm10`       INT NULL DEFAULT NULL,
+                `pm25`       INT NULL DEFAULT NULL,
+                `o3`         INT NULL DEFAULT NULL,
+                `c6h6`       INT NULL DEFAULT NULL,
+                `created_at` DATETIME NOT NULL,
+                `updated_at` DATETIME NULL DEFAULT NULL,
+                PRIMARY KEY (`id`)
+            )
         ';
 
         return Db::getInstance()->execute($sql);
@@ -76,8 +95,7 @@ class SmogBuster extends Module
     private function uninstallSQL()
     {
         $sql = '
-            ALTER TABLE '._DB_PREFIX_.'product_lang
-            DROP COLUMN IF EXISTS extra_product_info
+            DROP TABLE IF EXISTS `'._DB_PREFIX_.'smogbuster`
         ';
 
         return Db::getInstance()->execute($sql);
