@@ -11,6 +11,10 @@ class SmogBusterFetcher
 
     const AQ_INDEX_URL = 'http://api.gios.gov.pl/pjp-api/rest/aqindex/getIndex/';
 
+    private $updatedAt;
+
+    private $emptyIndexDef = -1;
+
     /**
      * Fetch data from api and persist into database.
      *
@@ -18,16 +22,18 @@ class SmogBusterFetcher
      */
     public function fetch()
     {
+        $this->updatedAt = (new \DateTime())->format('Y-m-d H:i:s');
+
         $i = 0;
         $stations = $this->curl(self::STATIONS_URL);
         if (is_array($stations)) {
             foreach ($stations as $station) {
                 $data = [];
-                $emptyIndexDef = -1;
                 $data['station_id'] = isset($station['id']) ? $station['id'] : null;
                 if (empty($data['station_id'])) {
                     continue;
                 }
+                $aqIndex = $this->curl(self::AQ_INDEX_URL.$station['id']);
 
                 $data['name'] = isset($station['stationName']) ? $station['stationName'] : null;
                 $data['latitude'] = isset($station['gegrLat']) ? $station['gegrLat'] : null;
@@ -35,23 +41,54 @@ class SmogBusterFetcher
                 $data['city'] = isset($station['city']['name']) ? $station['city']['name'] : null;
                 $data['address'] = isset($station['addressStreet']) ? $station['addressStreet'] : null;
 
-                $aqIndex = $this->curl(self::AQ_INDEX_URL.$station['id']);
-                $data['st'] = isset($aqIndex['stIndexLevel']['id']) ? $aqIndex['stIndexLevel']['id'] : $emptyIndexDef;
-                $data['so2'] = isset($aqIndex['so2IndexLevel']['id']) ? $aqIndex['so2IndexLevel']['id'] : $emptyIndexDef;
-                $data['no2'] = isset($aqIndex['no2IndexLevel']['id']) ? $aqIndex['no2IndexLevel']['id'] : $emptyIndexDef;
-                $data['co'] = isset($aqIndex['coIndexLevel']['id']) ? $aqIndex['coIndexLevel']['id'] : $emptyIndexDef;
-                $data['pm10'] = isset($aqIndex['pm10IndexLevel']['id']) ? $aqIndex['pm10IndexLevel']['id'] : $emptyIndexDef;
-                $data['pm25'] = isset($aqIndex['pm25IndexLevel']['id']) ? $aqIndex['pm25IndexLevel']['id'] : $emptyIndexDef;
-                $data['o3'] = isset($aqIndex['o3IndexLevel']['id']) ? $aqIndex['o3IndexLevel']['id'] : $emptyIndexDef;
-                $data['c6h6'] = isset($aqIndex['c6h6IndexLevel']['id']) ? $aqIndex['c6h6IndexLevel']['id'] : $emptyIndexDef;
-                $data['updated_at'] = (new \DateTime())->format('Y-m-d H:i:s');
+                $data['st'] = isset($aqIndex['stIndexLevel']['id']) ? $aqIndex['stIndexLevel']['id'] : $this->emptyIndexDef;
+                $data['so2'] = isset($aqIndex['so2IndexLevel']['id']) ? $aqIndex['so2IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['no2'] = isset($aqIndex['no2IndexLevel']['id']) ? $aqIndex['no2IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['co'] = isset($aqIndex['coIndexLevel']['id']) ? $aqIndex['coIndexLevel']['id'] : $this->emptyIndexDef;
+                $data['pm10'] = isset($aqIndex['pm10IndexLevel']['id']) ? $aqIndex['pm10IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['pm25'] = isset($aqIndex['pm25IndexLevel']['id']) ? $aqIndex['pm25IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['o3'] = isset($aqIndex['o3IndexLevel']['id']) ? $aqIndex['o3IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['c6h6'] = isset($aqIndex['c6h6IndexLevel']['id']) ? $aqIndex['c6h6IndexLevel']['id'] : $this->emptyIndexDef;
+                $data['updated_at'] = $this->updatedAt;
 
                 $this->updateSmogBuster($data);
                 ++$i;
             }
         }
 
+        $this->clearUnactualIndexes();
+
         return $i;
+    }
+
+    /**
+     * Clear unuctal not updated in last fetch air quality indexes
+     */
+    public function clearUnactualIndexes()
+    {
+        $sql = new DbQuery();
+        $sql->select('id');
+        $sql->from('smogbuster');
+        $sql->where('updated_at < \''.$this->updatedAt.'\'');
+        $ids = Db::getInstance()->executeS($sql);
+        if (is_array($ids)) {
+            foreach ($ids as &$id) {
+                $id = $id['id'];
+            }
+            $ids = implode(', ', $ids);
+
+            $data = [
+                'st' => $this->emptyIndexDef,
+                'so2' => $this->emptyIndexDef,
+                'no2' => $this->emptyIndexDef,
+                'co' => $this->emptyIndexDef,
+                'pm10' => $this->emptyIndexDef,
+                'pm25' => $this->emptyIndexDef,
+                'o3' => $this->emptyIndexDef,
+                'c6h6' => $this->emptyIndexDef,
+            ];
+            $this->getDb()->update('smogbuster', $data, 'id IN ('.$ids.')');
+        }
     }
 
     /**
