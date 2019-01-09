@@ -71,7 +71,7 @@ class SmogBusterFetcher
         $sql->from('smogbuster');
         $sql->where('updated_at < \''.$this->updatedAt.'\'');
         $ids = Db::getInstance()->executeS($sql);
-        if (is_array($ids)) {
+        if (is_array($ids) && count($ids) > 0) {
             foreach ($ids as &$id) {
                 $id = $id['id'];
             }
